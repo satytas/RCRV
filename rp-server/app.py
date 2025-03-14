@@ -1,5 +1,8 @@
 
+import socket
 from flask import Flask, Response, request, render_template, jsonify
+import fcntl
+import struct
 import cv2
 import numpy as np
 import time
@@ -23,6 +26,57 @@ cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
 person_detected = False
 person_rect = (0, 0, 0, 0)  # (x, y, w, h) of the detected person
 fps = 0
+
+direction = "None"
+angle = 0.0
+scan_mode = False
+
+def get_ip_address(ifname):
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        return socket.inet_ntoa(fcntl.ioctl(
+            s.fileno(),
+            0x8915,  # SIOCGIFADDR
+            struct.pack('256s', ifname[:15].encode('utf-8'))
+        )[20:24])
+    except OSError as e:
+        print(f"Error getting IP for {ifname}: {e}")
+        return None
+
+def get_broadcast_address(ifname):
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        return socket.inet_ntoa(fcntl.ioctl(
+            s.fileno(),
+            0x8919,  # SIOCGIFBRDADDR
+            struct.pack('256s', ifname[:15].encode('utf-8'))
+        )[20:24])
+    except OSError as e:
+        print(f"Error getting broadcast address for {ifname}: {e}")
+        return None
+
+def broadcast_ip():
+    interface = 'wlan0'  # Replace with your actual interface name if different
+    for _ in range(30):  # Try for 30 seconds
+        ip_address = get_ip_address(interface)
+        if ip_address is None:
+            print(f"No IP address found for {interface}, retrying...")
+            time.sleep(1)
+            continue
+        
+        broadcast_address = get_broadcast_address(interface)
+        if broadcast_address is None:
+            print(f"No broadcast address found for {interface}, using default 255.255.255.255")
+            broadcast_address = "255.255.255.255"  # Fallback
+        
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        
+        message = f"FLASK_SERVER:{ip_address}".encode('utf-8')
+        print(f"Broadcasting: {message} to {broadcast_address}:5001")
+        sock.sendto(message, (broadcast_address, 5001))
+        sock.close()
+        time.sleep(1)
 
 def frame_capture():
     global person_detected, person_rect, fps
@@ -119,9 +173,41 @@ def index():
 def video_feed():
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-@app.route('/get_data')
+@app.route('/get_data', methods=['GET'])
 def get_data():
-    return jsonify({'fps': fps, 'person_detected': person_detected})
+    global fps, person_detected
+    data = {
+        'fps': fps,
+        'person_detected': person_detected
+    }
+    print(f"Sending data to client: {data}")
+    return jsonify(data)
+
+@app.route('/send_data', methods=['POST'])
+def send_data():
+    global direction, angle, scan_mode
+    try:
+        data = request.get_json()
+        direction = data.get('direction', 'None')
+        angle = data.get('angle', 0.0)
+        scan_mode = data.get('scanMode', False)
+        
+        print(f"Received data from client - Direction: {direction}, Angle: {angle}, ScanMode: {scan_mode}")
+        
+        # Optional: Return a response to the client
+        response = {
+            'status': 'success',
+            'received': {
+                'direction': direction,
+                'angle': angle,
+                'scanMode': scan_mode
+            }
+        }
+        return jsonify(response), 200
+    except Exception as e:
+        print(f"Error processing POST request: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 400
 
 if __name__ == "__main__":
+    Thread(target=broadcast_ip).start()
     app.run(host="0.0.0.0", port=5000, threaded=True)
