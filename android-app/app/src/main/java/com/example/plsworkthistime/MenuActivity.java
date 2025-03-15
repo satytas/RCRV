@@ -4,6 +4,8 @@ import android.annotation.SuppressLint;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.provider.Settings;
@@ -18,7 +20,7 @@ import androidx.media3.common.util.UnstableApi;
 import java.lang.reflect.Method;
 
 public class MenuActivity extends AppCompatActivity implements NetworkScanner.ScannerCallBack {
-    private Button hotspotBtn, connectBtn, mainBtn;
+    private Button hotspotBtn, connectBtn;
     private TextView dataLbl;
     private String hostIP = "";
     private boolean foundIp = false;
@@ -30,22 +32,24 @@ public class MenuActivity extends AppCompatActivity implements NetworkScanner.Sc
         setContentView(R.layout.activity_menu_connect);
 
         hotspotBtn = findViewById(R.id.hotspotBtn);
-        connectBtn = findViewById(R.id.connectBtn);
-        mainBtn = findViewById(R.id.mainBtn);
-        dataLbl = findViewById(R.id.dataLbl);
+        connectBtn = findViewById(R.id.connectBtn);dataLbl = findViewById(R.id.dataLbl);
 
         hotspotBtn.setOnClickListener(v -> turnOnHotspot());
         connectBtn.setOnClickListener(v -> {
-            startIpScan();
-            connectBtn.setText("Searching");
-            connectBtn.setEnabled(false);
-        });
-        mainBtn.setOnClickListener(v -> {
-            Intent intent = new Intent(MenuActivity.this, MainActivity.class);
-            intent.putExtra("hostIP", hostIP);
+            if(foundIp) {
+                Intent intent = new Intent(MenuActivity.this, MainActivity.class);
+                intent.putExtra("hostIP", hostIP);
 
-            startActivity(intent);
+                startActivity(intent);
+            }
+            else{
+                startIpScan();
+                connectBtn.setText("Searching");
+                connectBtn.setEnabled(false);
+            }
         });
+
+
 
         new Thread(() -> {
             boolean wasHotspotOn = false;
@@ -69,8 +73,6 @@ public class MenuActivity extends AppCompatActivity implements NetworkScanner.Sc
                     });
                     wasHotspotOn = false;
                 }
-
-                runOnUiThread(() -> mainBtn.setEnabled(hotspotCurrentlyOn && foundIp));
 
                 try {
                     Thread.sleep(1000);
@@ -108,9 +110,7 @@ public class MenuActivity extends AppCompatActivity implements NetworkScanner.Sc
 
     @Override
     public void updateInfoLbl(){
-        runOnUiThread(() -> dataLbl.setText(NetworkScanner.scanState +
-                "\nFound IP: " + NetworkScanner.foundIP));
-
+        runOnUiThread(() -> dataLbl.setText(NetworkScanner.scanState));
     }
 
     @Override
@@ -120,8 +120,9 @@ public class MenuActivity extends AppCompatActivity implements NetworkScanner.Sc
         runOnUiThread(() -> {
             if(hostIP != "") {
                 foundIp = true;
-                connectBtn.setText("Connected!");
-            }
+                connectBtn.setText("Start");
+                connectBtn.setBackgroundColor(Color.parseColor("#34A853"));
+                connectBtn.setEnabled(true);}
             else{
                 connectBtn.setText("Try again?");
                 connectBtn.setEnabled(true);

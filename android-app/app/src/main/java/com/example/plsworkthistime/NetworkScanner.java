@@ -54,7 +54,7 @@ public class NetworkScanner {
                 String ip = message.substring("FLASK_SERVER:".length());
                 Log.i(TAG, "Received server IP: " + ip);
                 foundIP = ip;
-                scanState = "Found server at " + ip;
+                scanState = "Connected!\nFound server at " + ip;
                 callback.updateInfoLbl();
                 return ip;
             }

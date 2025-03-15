@@ -220,11 +220,13 @@ public class MainActivity extends AppCompatActivity{
                     if(threatDetected){
                         threatLbl.setText("THREAT DETECTED");
                         threatLbl.setTextColor(Color.RED);
+                        threatLbl.setBackgroundColor(Color.parseColor("#80D32F2F"));
                         threatLbl.setTextSize(30);
                     }
                     else{
                         threatLbl.setText("no threats");
                         threatLbl.setTextColor(Color.GREEN);
+                        threatLbl.setBackgroundColor(Color.TRANSPARENT);
                         threatLbl.setTextSize(20);
                     }
 
