@@ -109,9 +109,7 @@ public class MenuActivity extends AppCompatActivity implements NetworkScanner.Sc
     @Override
     public void updateInfoLbl(){
         runOnUiThread(() -> dataLbl.setText(NetworkScanner.scanState +
-                "\nFound IP: " + NetworkScanner.foundIP +
-                "\nFound Subnet: " + NetworkScanner.foundSubnet +
-                "\nChecking with:\n" + NetworkScanner.checkingIp));
+                "\nFound IP: " + NetworkScanner.foundIP));
 
     }
 
