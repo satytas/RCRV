@@ -1,4 +1,3 @@
-
 import socket
 from flask import Flask, Response, request, render_template, jsonify
 import fcntl
@@ -19,14 +18,13 @@ mode = 1  # 1-MobileNet SSD, 2-HOG, 3-Haar Cascade, 4-None
 app = Flask(__name__)
 
 cap = cv2.VideoCapture(0)
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)  # Reduce resolution for faster processing
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
 
-# Global variables to store detection state
+# Global variables
 person_detected = False
-person_rect = (0, 0, 0, 0)  # (x, y, w, h) of the detected person
+person_rect = (0, 0, 0, 0)
 fps = 0
-
 direction = "None"
 angle = 0.0
 scan_mode = False
@@ -56,18 +54,15 @@ def get_broadcast_address(ifname):
         return None
 
 def broadcast_ip():
-    interface = 'wlan0'  # Replace with your actual interface name if different
-    for _ in range(30):  # Try for 30 seconds
+    interface = 'wlan0'
+    for _ in range(30):
         ip_address = get_ip_address(interface)
         if ip_address is None:
             print(f"No IP address found for {interface}, retrying...")
             time.sleep(1)
             continue
         
-        broadcast_address = get_broadcast_address(interface)
-        if broadcast_address is None:
-            print(f"No broadcast address found for {interface}, using default 255.255.255.255")
-            broadcast_address = "255.255.255.255"  # Fallback
+        broadcast_address = get_broadcast_address(interface) or "255.255.255.255"
         
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -78,38 +73,11 @@ def broadcast_ip():
         sock.close()
         time.sleep(1)
 
-def frame_capture():
-    global person_detected, person_rect, fps
-    frame_count = 0
-    start_time = time.time()
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            continue
-
-        # Process frame and detect person
-        processed_frame, detected, rect = process_frame(frame)
-
-        # Update global detection state
-        person_detected = detected
-        person_rect = rect
-        
-        # Calculate FPS in the capture loop
-        frame_count += 1
-        elapsed_time = time.time() - start_time
-        if elapsed_time >= 1.0:
-            fps = frame_count / elapsed_time
-            frame_count = 0
-            start_time = time.time()
-
-        # Yield the processed frame for streaming
-        yield frame
-
 def process_frame(frame):
     global mode
     height, width = frame.shape[:2]
     detected = False
-    rect = (0, 0, 0, 0)  # Default to no detection
+    rect = (0, 0, 0, 0)
 
     if mode == 1:
         # MobileNet SSD detection
@@ -148,22 +116,43 @@ def process_frame(frame):
     return frame, detected, rect
 
 def generate_frames():
-    global person_detected, person_rect
+    global person_detected, person_rect, fps
+    frame_count = 0
+    start_time = time.time()
+    
     while True:
-        frame = next(frame_capture())  # Get the latest frame from capture thread
-
-        # Draw the detected person (if any)
-        if person_detected:
-            x, y, w, h = person_rect
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-
-        # Encode frame and send it
-        ret, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+        ret, frame = cap.read()
         if not ret:
             continue
-        frame = buffer.tobytes()
+
+        # Process frame and detect person
+        processed_frame, detected, rect = process_frame(frame)
+
+        # Update global detection state
+        person_detected = detected
+        person_rect = rect
+        
+        # Calculate FPS
+        frame_count += 1
+        elapsed_time = time.time() - start_time
+        if elapsed_time >= 1.0:
+            fps = frame_count / elapsed_time
+            frame_count = 0
+            start_time = time.time()
+
+        # Draw the detected person (if any)
+        if person_detected and rect != (0, 0, 0, 0):
+            x, y, w, h = person_rect
+            cv2.rectangle(processed_frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+        # Encode frame with reduced quality for better performance
+        ret, buffer = cv2.imencode('.jpg', processed_frame, [cv2.IMWRITE_JPEG_QUALITY, 65])
+        if not ret:
+            continue
+            
+        frame_bytes = buffer.tobytes()
         yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+               b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
 
 @app.route('/')
 def index():
@@ -175,37 +164,40 @@ def video_feed():
 
 @app.route('/get_data', methods=['GET'])
 def get_data():
-    global fps, person_detected
+    global fps, person_detected, mode
     data = {
         'fps': fps,
-        'person_detected': person_detected
+        'person_detected': person_detected,
+        'mode': mode
     }
-    print(f"Sending data to client: {data}")
     return jsonify(data)
 
 @app.route('/send_data', methods=['POST'])
 def send_data():
-    global direction, angle, scan_mode
-    try:
+    global direction, angle, scan_mode, mode
+
+try:
         data = request.get_json()
         direction = data.get('direction', 'None')
         angle = data.get('angle', 0.0)
         scan_mode = data.get('scanMode', False)
         
-        print(f"Received data from client - Direction: {direction}, Angle: {angle}, ScanMode: {scan_mode}")
+        # Allow mode to be updated via API
+        if 'mode' in data:
+            new_mode = data.get('mode')
+            if new_mode in [1, 2, 3, 4]:
+                mode = new_mode
         
-        # Optional: Return a response to the client
-        response = {
+        return jsonify({
             'status': 'success',
             'received': {
                 'direction': direction,
                 'angle': angle,
-                'scanMode': scan_mode
+                'scanMode': scan_mode,
+                'mode': mode
             }
-        }
-        return jsonify(response), 200
+        }), 200
     except Exception as e:
-        print(f"Error processing POST request: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 400
 
 if __name__ == "__main__":
