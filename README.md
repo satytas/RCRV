@@ -1,7 +1,7 @@
 # Remote Controlled Reconnaissance Vehicle (RCRV)  
 
 ### Overview
-The **RCRV** is a concept project for a compact, remote-controlled reconnaissance robot designed for urban warfare scenarios.  
+The **RCRV** is a **concept project** for a compact, remote-controlled reconnaissance robot designed for urban warfare scenarios.  
 This is one of my final engineering project in **Electronics Engineering** and **Software Engineering**.  
 
 The robot provides soldiers with a safer and more efficient way to navigate hostile environments by offering real-time video streaming, manual navigation, and automated enemy detection.  
