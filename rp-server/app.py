@@ -168,9 +168,9 @@ def send_data():
             connected[0] = True
             print("Client connected, stopping broadcasts.")
 
-        uart.send_command(direction, scan_mode)
+        uartCommand = uart.send_command(direction, scan_mode)
         
-        print(f"Current state: Direction: {direction}, Angle: {angle}, ScanMode: {scan_mode}, Mode: {mode}")
+        print(f"UART: {bin(uartCommand)}, Dir: {direction}, ScanMode: {scan_mode}, Mode: {mode}, Angle: {angle}")
         
         response = {
             'status': 'success',

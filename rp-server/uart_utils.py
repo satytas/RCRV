@@ -52,9 +52,10 @@ class UARTController:
             return
 
         command = (scan << 4) | (right << 3) | (left << 2) | (backward << 1) | forward
-
+        
         try:
             self.ser.write(bytes([command]))
+            return command
             print(f"UART : {bin(command)}")
         except serial.SerialException as e:
             print(f"Send error: {e}")
