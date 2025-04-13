@@ -19,13 +19,11 @@ public class JoyStick extends SurfaceView implements SurfaceHolder.Callback, Vie
     public String dir = "None";
     public double angle = 0;
 
-    // Colors for modern UI
     private static final int OUTER_CIRCLE_COLOR = Color.parseColor("#4285F4");
     private static final int INNER_CIRCLE_COLOR = Color.parseColor("#FFFFFF");
     private static final int INNER_CIRCLE_BORDER = Color.parseColor("#CCCCCC");
     private static final int CENTER_DOT_COLOR = Color.parseColor("#4285F4");
 
-    // Visual parameters
     private static final float OUTER_STROKE_WIDTH = 6f;
     private static final float INNER_STROKE_WIDTH = 3f;
 
@@ -110,7 +108,6 @@ public class JoyStick extends SurfaceView implements SurfaceHolder.Callback, Vie
 
             float posX, posY;
 
-            // Limit movement to inside the circle
             if (distance > circleRadius) {
                 float ratio = circleRadius / distance;
                 posX = centerX + dx * ratio;
